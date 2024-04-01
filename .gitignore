@@ -1,0 +1,10 @@
+**/.build
+*.exe
+*.pdb
+*.dot
+*.exp
+.vs
+*.db
+*.dll
+!lib/**/*.dll
+*.rdbg
