@@ -105,7 +105,7 @@ working_directory_set := false;
 
 Simp  :: #import "Simp";
 Input :: #import "Input";
-File  :: #import "File";
+#import "File";
 #import "Window_Creation";
 #import "Basic"()(MEMORY_DEBUGGER=DEBUG_MEMORY);
 #import "Math";

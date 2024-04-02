@@ -39,21 +39,26 @@ board: struct {
     CELL_SIZE :: 90.0;
 }
 
+save_state_version := 1;
+
 // @@@: if a struct has a readonly member and a variable member, how does that work?
 
 // @TODO:
-// - require escaping check
-// - disallow move creating self-check
-// - checkmate
-// - flip white top/bottom
-//      - decouple white/black = bottom/top
+// - save states
 // - castling
 //      - make_move
 //      - checking if it's valid
-// - AI
-// - Networking
+// - flip white top/bottom
+//      - decouple white/black = bottom/top
+// - require escaping check
+// - disallow move creating self-check
+// - checkmate
 // - no progress game ending
-// - save states
+// - AI
+//      - common methods for AI and player to take actions
+// - Networking
+// - piece ids so I can save history
+// - promote board to named type
 
 handle_input :: () {
     using input;
@@ -166,6 +171,7 @@ make_move :: (mouse_cell: Cell, capture: *Piece, castled: *Piece) {
 simulate :: () {
     using input;
     using game;
+
     if !promoting_pawn {
         mouse_cell := pixel_to_cell(mouse.position.x, mouse.position.y);
         if is_key_pressed(xx Input.Key_Code.MOUSE_BUTTON_LEFT) {
@@ -213,40 +219,41 @@ simulate :: () {
         }
         if save {
             file, success := file_open("save_state.txt", true);
+            defer file_close(*file);
             if success {
-                file_write(file, )
-                talloc()
-                file_length(file);
-                defer file_close()
+                file_write(*file, *save_state_version, size_of(type_of(save_state_version)));
+                count := board.pieces.count;
+                file_write(*file, *count, size_of(type_of(count)));
                 for board.pieces {
-                    it.x
-                    it.y
-                    it.is_alive
-                    it.type
+                    file_write(*file, *it, size_of(type_of(it)));
                 }
-                print_to_builder(*sb, "%", player_color);
-                data := builder_to_string(*sb);
-                File.write_entire_file("save_state.txt", data);
+                file_write(*file, *player_color, size_of(type_of(player_color)));
             }
         }
         if load {
-            data, success := File.read_entire_file("save_state.txt");
-            if success {
-                log("%", data);
-                cursor : *void = *data;
-                for i: 0..board.pieces.count-1 {
-                    board.pieces[i].x = cast(int)cursor;
-                    log("%", <<(cast(*int)cursor));
-                    log("%", board.pieces[i].x);
-                    cursor += size_of(int);
-                    board.pieces[i].y = <<(cast(*int)cursor);
-                    cursor += size_of(int);
-                    board.pieces[i].is_alive = <<(cast(*bool)cursor);
-                    cursor += size_of(bool);
-                    board.pieces[i].type = <<(cast(*u8)cursor);
-                    cursor += size_of(u8);
+            array_reset(*history);
+            game_reset();
+
+            file, open_success := file_open("save_state.txt");
+            defer file_close(*file);
+            if open_success {
+                length, length_success := file_length(file);
+                if length_success {
+                    data := talloc(length);
+                    read_success, bytes_read := file_read(file, data, length);
+                    if read_success {
+                        cursor := *data;
+                        version := <<(cast(*type_of(save_state_version))cursor.*);
+                        cursor.* += size_of(type_of(save_state_version));
+                        count := <<(cast(*type_of(board.pieces.count))cursor.*);
+                        cursor.* += size_of(type_of(count));
+                        for i: 0..count-1 {
+                            board.pieces[i] = <<(cast(*Piece)cursor.*);
+                            cursor.* += size_of(Piece);
+                        }
+                        player_color = <<(cast(*type_of(player_color))cursor.*);
+                    }
                 }
-                player_color = <<(cast(*u8)cursor);
             }
         }
     } else {

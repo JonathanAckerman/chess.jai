@@ -52,7 +52,7 @@ render :: () {
         }
     }
 
-    if draw_previous_move {
+    if draw_previous_move && history.count > 0 {
         previous_move := history[history.count-1];
 
         Simp.set_shader_for_color();
