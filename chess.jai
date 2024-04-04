@@ -41,8 +41,6 @@ board: struct {
 
 save_state_version := 1;
 
-// @@@: if a struct has a readonly member and a variable member, how does that work?
-
 // @TODO:
 // - save states
 // - castling
