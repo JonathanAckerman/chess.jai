@@ -1,12 +1,8 @@
 Piece :: struct {
-    using piece_data: Piece_Data;
-    type: u8;
-}
-
-Piece_Data :: struct {
     using cell: Cell;
     is_alive : bool = true;
-};
+    type: u8;
+}
 
 Cell :: struct {
     x: int;
@@ -36,4 +32,40 @@ BLACK_ROOK:    u8 : 0b_0101_011_1; // 87
 BLACK_QUEEN:   u8 : 0b_1001_100_1; // 153
 BLACK_KING:    u8 : 0b_1111_101_1; // 251
 
+BLACK_TEAM :: Piece.[
+    .{type = BLACK_ROOK},
+    .{type = BLACK_KNIGHT},
+    .{type = BLACK_BISHOP},
+    .{type = BLACK_KING},
+    .{type = BLACK_QUEEN},
+    .{type = BLACK_BISHOP},
+    .{type = BLACK_KNIGHT},
+    .{type = BLACK_ROOK},
+    .{type = BLACK_PAWN},
+    .{type = BLACK_PAWN},
+    .{type = BLACK_PAWN},
+    .{type = BLACK_PAWN},
+    .{type = BLACK_PAWN},
+    .{type = BLACK_PAWN},
+    .{type = BLACK_PAWN},
+    .{type = BLACK_PAWN},
+];
+WHITE_TEAM :: Piece.[
+    .{type = WHITE_ROOK},
+    .{type = WHITE_KNIGHT},
+    .{type = WHITE_BISHOP},
+    .{type = WHITE_QUEEN},
+    .{type = WHITE_KING},
+    .{type = WHITE_BISHOP},
+    .{type = WHITE_KNIGHT},
+    .{type = WHITE_ROOK},
+    .{type = WHITE_PAWN},
+    .{type = WHITE_PAWN},
+    .{type = WHITE_PAWN},
+    .{type = WHITE_PAWN},
+    .{type = WHITE_PAWN},
+    .{type = WHITE_PAWN},
+    .{type = WHITE_PAWN},
+    .{type = WHITE_PAWN},
+];
 

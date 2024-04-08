@@ -82,6 +82,7 @@ game: struct {
         capture: *Piece;
         from: [2] Cell;
     };
+    board: Board;
 }
 
 init_fonts :: () {

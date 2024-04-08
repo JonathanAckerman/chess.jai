@@ -1,51 +1,38 @@
-board: struct {
-    pieces := Piece.[
-        .{.{x=0, y=0}, WHITE_ROOK},
-        .{.{x=1, y=0}, WHITE_KNIGHT},
-        .{.{x=2, y=0}, WHITE_BISHOP},
-        .{.{x=3, y=0}, WHITE_QUEEN},
-        .{.{x=4, y=0}, WHITE_KING},
-        .{.{x=5, y=0}, WHITE_BISHOP},
-        .{.{x=6, y=0}, WHITE_KNIGHT},
-        .{.{x=7, y=0}, WHITE_ROOK},
-        .{.{x=0, y=1}, WHITE_PAWN},
-        .{.{x=1, y=1}, WHITE_PAWN},
-        .{.{x=2, y=1}, WHITE_PAWN},
-        .{.{x=3, y=1}, WHITE_PAWN},
-        .{.{x=4, y=1}, WHITE_PAWN},
-        .{.{x=5, y=1}, WHITE_PAWN},
-        .{.{x=6, y=1}, WHITE_PAWN},
-        .{.{x=7, y=1}, WHITE_PAWN},
-
-        .{.{x=0, y=7}, BLACK_ROOK},
-        .{.{x=1, y=7}, BLACK_KNIGHT},
-        .{.{x=2, y=7}, BLACK_BISHOP},
-        .{.{x=3, y=7}, BLACK_KING},
-        .{.{x=4, y=7}, BLACK_QUEEN},
-        .{.{x=5, y=7}, BLACK_BISHOP},
-        .{.{x=6, y=7}, BLACK_KNIGHT},
-        .{.{x=7, y=7}, BLACK_ROOK},
-        .{.{x=0, y=6}, BLACK_PAWN},
-        .{.{x=1, y=6}, BLACK_PAWN},
-        .{.{x=2, y=6}, BLACK_PAWN},
-        .{.{x=3, y=6}, BLACK_PAWN},
-        .{.{x=4, y=6}, BLACK_PAWN},
-        .{.{x=5, y=6}, BLACK_PAWN},
-        .{.{x=6, y=6}, BLACK_PAWN},
-        .{.{x=7, y=6}, BLACK_PAWN},
-    ];
+Board :: struct {
+    pieces: [32] Piece;
 
     WIDTH :: 8;
     CELL_SIZE :: 90.0;
+    WHITE_IS_BOTTOM := true;
+}
+
+init_board :: () {
+    using game.board;
+
+    // Bottom team
+    i := 0;
+    for y: 0..1 {
+        for x: 0..7 {
+            pieces[i].cell = .{x, y};
+            pieces[i].type = ifx game.board.WHITE_IS_BOTTOM then WHITE_TEAM[i].type else BLACK_TEAM[i].type;
+            i += 1;
+        }
+    }
+    // Top team
+    for < y: 7..6 {
+        for x: 0..7 {
+            pieces[i].cell = .{x, y};
+            pieces[i].type = ifx game.board.WHITE_IS_BOTTOM then BLACK_TEAM[i % 16].type else WHITE_TEAM[i % 16].type;
+            i += 1;
+        }
+    }
 }
 
 save_state_version := 1;
 
 // @TODO:
-// - flip white top/bottom
-//      - decouple white/black = bottom/top
+// - decouple white/black = bottom/top
 // - piece ids so I can save history
-// - promote board to named type
 // - require escaping check
 // - disallow move creating self-check
 // - checkmate
@@ -522,6 +509,7 @@ has_clear_path :: (using destination: Cell) -> bool {
 }
 
 get_moveset_cells :: () -> [] Cell {
+    using game;
     cells: [..] Cell;
     for y: 0..board.WIDTH-1 {
         for x: 0..board.WIDTH-1 {
@@ -601,7 +589,7 @@ get_move_path :: (using destination: Cell) -> [] Cell {
     return path;
 }
 
-is_on_board :: (using cell: Cell) -> bool { return x >= 0 && x < board.WIDTH && y >= 0 && y < board.WIDTH; }
+is_on_board :: (using cell: Cell) -> bool { return x >= 0 && x < game.board.WIDTH && y >= 0 && y < game.board.WIDTH; }
 
 sign :: (n: int) -> int {
     if n == 0 return 0; 
@@ -609,20 +597,20 @@ sign :: (n: int) -> int {
 }
 
 pixel_to_cell :: (pixel_x: float, pixel_y: float) -> Cell {
-    x := cast(int)(pixel_x / board.CELL_SIZE);
-    y := cast(int)(pixel_y / board.CELL_SIZE);
+    x := cast(int)(pixel_x / game.board.CELL_SIZE);
+    y := cast(int)(pixel_y / game.board.CELL_SIZE);
     return Cell.{x, y};
 }
 
 get_piece_at :: (cell: Cell) -> *Piece {
-    for board.pieces if it.is_alive && it.x == cell.x && it.y == cell.y return *it;
+    for game.board.pieces if it.is_alive && it.x == cell.x && it.y == cell.y return *it;
     return null;
 }
 
 game_reset :: () {
     print("RESETTING\n");
     game = .{};
-    board = .{};
+    init_board();
 }
 
 main :: () {
@@ -638,6 +626,7 @@ main :: () {
     init_fonts();
     init_textures();
 
+    game_reset();
     while !game.quit {
         handle_input();
         game_loop();

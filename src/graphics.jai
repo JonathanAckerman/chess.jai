@@ -168,7 +168,7 @@ render :: () {
 }
 
 draw_piece :: (piece: Piece) {
-    using board;
+    using game.board;
     p0 := Vector2.{piece.x * CELL_SIZE, piece.y * CELL_SIZE};
     p1 := Vector2.{piece.x * CELL_SIZE + CELL_SIZE, piece.y * CELL_SIZE + CELL_SIZE};
     draw_piece(piece, p0, p1);
@@ -191,9 +191,6 @@ draw_piece :: (piece: Piece, p0: Vector2, p1: Vector2) {
         case BLACK_QUEEN;  tex = *black_queen_tex;
         case BLACK_KING;   tex = *black_king_tex;
     }
-    // log("%", board.pieces);
-    // log("%", piece);
-    // log("%", piece.type);
 
     Simp.set_shader_for_images(tex);
     Simp.immediate_quad(p0.x, p0.y, p1.x, p1.y, .{1,1,1,1});
