@@ -103,8 +103,9 @@ init_fonts :: () {
 
 working_directory_set := false;
 
-Simp  :: #import "Simp";
-Input :: #import "Input";
+Simp    :: #import "Simp";
+Input   :: #import "Input";
+Windows :: #import "Windows";
 #import "File";
 #import "Window_Creation";
 #import "Basic"()(MEMORY_DEBUGGER=DEBUG_MEMORY);

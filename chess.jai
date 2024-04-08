@@ -42,21 +42,19 @@ board: struct {
 save_state_version := 1;
 
 // @TODO:
-// - save states
-// - castling
-//      - make_move
-//      - checking if it's valid
 // - flip white top/bottom
 //      - decouple white/black = bottom/top
+// - piece ids so I can save history
+// - promote board to named type
 // - require escaping check
 // - disallow move creating self-check
 // - checkmate
 // - no progress game ending
+// - side panel that shows the algebraic notation of moves
+//      - Analyze the quality of moves (eg: Blunder, Error)
 // - AI
 //      - common methods for AI and player to take actions
 // - Networking
-// - piece ids so I can save history
-// - promote board to named type
 
 handle_input :: () {
     using input;
@@ -143,6 +141,7 @@ make_move :: (mouse_cell: Cell, capture: *Piece, castled: *Piece) {
     using game;
     if capture then capture.is_alive = false;
 
+    // Add to history
     from: [2] Cell;
     from[0] = held_piece.cell;
     if castled then from[1] = castled.cell;
@@ -152,11 +151,12 @@ make_move :: (mouse_cell: Cell, capture: *Piece, castled: *Piece) {
         from
     });
 
-    held_piece.cell = mouse_cell;
     if castled {
-        castle_direction := sign(held_piece.cell.x - castled.cell.x);
-        castled.cell.x = held_piece.cell.x + castle_direction;
+        castle_direction := sign(castled.x - held_piece.x);
+        castled.x = held_piece.x + castle_direction * 2 - castle_direction;
+        held_piece.x = held_piece.x + castle_direction * 2;
     }
+    else held_piece.cell = mouse_cell;
 
     if is_pawn(held_piece) && (held_piece.y == 0 || held_piece.y == 7) 
         promoting_pawn = held_piece;
@@ -216,43 +216,75 @@ simulate :: () {
             held_piece = null;
         }
         if save {
-            file, success := file_open("save_state.txt", true);
-            defer file_close(*file);
-            if success {
-                file_write(*file, *save_state_version, size_of(type_of(save_state_version)));
-                count := board.pieces.count;
-                file_write(*file, *count, size_of(type_of(count)));
-                for board.pieces {
-                    file_write(*file, *it, size_of(type_of(it)));
+            U :: #import "Windows_Utf8";
+            buffer: [512] u16;
+            wfilter := U.utf8_to_wide_new("Save states\0*.txt",, temp);
+            ofn: Windows.OPENFILENAMEW;
+            ofn.lStructSize     = size_of(Windows.OPENFILENAMEW);
+            ofn.lpstrFilter     = wfilter;
+            ofn.lpstrFile   = buffer.data;
+            ofn.nMaxFile    = buffer.count;
+            ofn.Flags           = Windows.OFN_NOCHANGEDIR;
+            ofn.lpstrInitialDir = U.utf8_to_wide_new("C:\\jai\\sandbox\\chess\\saves");
+            ofn.nFileExtension  = <<U.utf8_to_wide_new(".txt",,temp);
+            ofn.lpstrFile  = U.utf8_to_wide_new("save_state.txt",,temp);
+            open_success := Windows.GetSaveFileNameW(*ofn);
+            if open_success {
+                name := U.wide_to_utf8_new(ofn.lpstrFile);
+                file, success := file_open(name, true);
+                if success {
+                    defer file_close(*file);
+                    file_write(*file, *save_state_version, size_of(type_of(save_state_version)));
+                    count := board.pieces.count;
+                    file_write(*file, *count, size_of(type_of(count)));
+                    for board.pieces {
+                        file_write(*file, *it, size_of(type_of(it)));
+                    }
+                    file_write(*file, *player_color, size_of(type_of(player_color)));
                 }
-                file_write(*file, *player_color, size_of(type_of(player_color)));
             }
         }
         if load {
             array_reset(*history);
             game_reset();
 
-            file, open_success := file_open("save_state.txt");
-            defer file_close(*file);
+            U :: #import "Windows_Utf8";
+            buffer: [512] u16;
+            wfilter := U.utf8_to_wide_new("Save states\0*.txt",, temp);
+            ofn: Windows.OPENFILENAMEW;
+            ofn.lStructSize = size_of(Windows.OPENFILENAMEW);
+            ofn.lpstrFilter = wfilter;
+            ofn.lpstrFile   = buffer.data;
+            ofn.nMaxFile    = buffer.count;
+            ofn.lpstrInitialDir = U.utf8_to_wide_new("C:\\jai\\sandbox\\chess\\saves");
+            ofn.nFileExtension  = <<U.utf8_to_wide_new(".txt",,temp);
+            ofn.Flags       = Windows.OFN_NOCHANGEDIR;
+            open_success := Windows.GetOpenFileNameW(*ofn);
             if open_success {
-                length, length_success := file_length(file);
-                if length_success {
-                    data := talloc(length);
-                    read_success, bytes_read := file_read(file, data, length);
-                    if read_success {
-                        cursor := *data;
-                        version := <<(cast(*type_of(save_state_version))cursor.*);
-                        cursor.* += size_of(type_of(save_state_version));
-                        count := <<(cast(*type_of(board.pieces.count))cursor.*);
-                        cursor.* += size_of(type_of(count));
-                        for i: 0..count-1 {
-                            board.pieces[i] = <<(cast(*Piece)cursor.*);
-                            cursor.* += size_of(Piece);
+                name := U.wide_to_utf8_new(ofn.lpstrFile);
+                file, file_open_success := file_open(name);
+                if file_open_success {
+                    defer file_close(*file);
+                    length, length_success := file_length(file);
+                    if length_success {
+                        data := talloc(length);
+                        read_success, bytes_read := file_read(file, data, length);
+                        if read_success {
+                            cursor := *data;
+                            version := <<(cast(*type_of(save_state_version))cursor.*);
+                            cursor.* += size_of(type_of(save_state_version));
+                            count := <<(cast(*type_of(board.pieces.count))cursor.*);
+                            cursor.* += size_of(type_of(count));
+                            for i: 0..count-1 {
+                                board.pieces[i] = <<(cast(*Piece)cursor.*);
+                                cursor.* += size_of(Piece);
+                            }
+                            player_color = <<(cast(*type_of(player_color))cursor.*);
                         }
-                        player_color = <<(cast(*type_of(player_color))cursor.*);
                     }
                 }
             }
+
         }
     } else {
         using board;
@@ -300,32 +332,29 @@ simulate :: () {
     }
 }
 
-is_valid_move :: (mouse_cell: Cell) -> bool, *Piece, *Piece {
+is_valid_move :: (mouse_cell: Cell) -> is_valid: bool, captured: *Piece, castled: *Piece {
     using game;
-    if is_on_board(mouse_cell) && is_in_moveset(mouse_cell) {
-        if has_clear_path(mouse_cell) {
+    if is_on_board(mouse_cell) && has_clear_path(mouse_cell) {
+        if is_in_moveset(mouse_cell) || is_castle(mouse_cell) { // @jay: maybe there's a better way to represent a piece's moveset
             onto := get_piece_at(mouse_cell);
             if onto {
-                if (onto.type & 1) != (held_piece.type & 1) {
-                    allow_capture := true;
-
+                if !matches_color(onto, held_piece) {
                     // disallow capturing kings
-                    allow_capture = !is_king(onto);
+                    if is_king(onto) return false, null, null;
 
-                    // disallow pawn forward-ontos
-                    if is_pawn(held_piece) && onto.x == held_piece.x {
-                        allow_capture = false;
-                    }
-                    
-                    return allow_capture, onto, null;
+                    // disallow pawn forward-captures
+                    if is_pawn(held_piece) && onto.x == held_piece.x return false, null, null;
 
-                } else if is_castle(onto.cell) return true, null, onto;
+                    return true, onto, null;
+                } else {
+                    return true, null, onto;
+                }
             } else {
-                // Castling onto king destination
+                // Castling onto king's destination
                 _, rook := is_castle(mouse_cell);
-                if rook 
+                if rook
                     return true, null, rook;
-                else if is_king(held_piece) && abs(held_piece.x - mouse_cell.x) == 2
+                else if is_king(held_piece) && abs(held_piece.x - mouse_cell.x) == 2 // @jay: yea this feels awkward
                     return false, null, null;
 
                 // Allow enpassant, disallow pawn diagonal moves otherwise
@@ -362,11 +391,14 @@ is_enpassant :: (to_cell: Cell) -> bool {
     return false;
 }
 
-is_castle :: (to_cell: Cell) -> bool, *Piece {
+is_castle :: (to_cell: Cell) -> bool, rook: *Piece {
     using game;
     if is_king(held_piece) {
+        for history if it.piece[0] == held_piece 
+            return false, null;
+
         if abs(to_cell.x - held_piece.x) == 2 {
-            // Moving onto the king destination
+            // Moving onto the king's destination
             rooks: [..] *Piece;
             for board.pieces if it.is_alive &&
                                 is_rook(it) && 
@@ -374,24 +406,23 @@ is_castle :: (to_cell: Cell) -> bool, *Piece {
                 array_add(*rooks, *it);
             }
 
-            log("before: %", rooks);
+            // remove invalid rooks
             for rook: rooks {
                 move_direction := sign(to_cell.x - held_piece.x);
                 rook_direction := sign(rook.x - held_piece.x);
                 if move_direction != rook_direction {
-                    remove rook; break;
+                    remove rook; continue;
                 }
 
                 for history { if it.piece[0] == rook
-                    remove rook; break;
+                    remove rook; continue;
                 }
 
-                log("% != %", rook.y, held_piece.y);
                 if rook.y != held_piece.y {
-                    remove rook; break;
+                    remove rook; continue;
                 }
             }
-            log("after: %", rooks);
+
             // we will have 0..1 rooks
             assert(rooks.count < 2);
             
@@ -404,11 +435,10 @@ is_castle :: (to_cell: Cell) -> bool, *Piece {
             // Moving onto a rook
             onto := get_piece_at(to_cell);
             if onto && is_rook(onto) {
-                if history.count > 0 && has_clear_path(onto.cell) {
-                    for history {
-                        if it.piece[0] == held_piece || it.piece[0] == onto {
+                if has_clear_path(onto.cell) {
+                    if history.count > 0 {
+                        for history if it.piece[0] == onto 
                             return false, null;
-                        }
                     }
                     return true, onto;
                 }
@@ -484,6 +514,7 @@ has_clear_path :: (using destination: Cell) -> bool {
     if path.count == 0 return false;
 
     for path {
+        // @FIXME: the below logic isn't obvious, there's a better way to write this
         if equals(it, destination) continue; // don't disqualify if our destination is occupied as it *might* be a capture
         if get_piece_at(it) return false;
     }
